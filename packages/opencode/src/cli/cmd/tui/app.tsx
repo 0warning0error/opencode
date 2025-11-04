@@ -24,6 +24,7 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { DialogAlert } from "./ui/dialog-alert"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
+import { SuspendProvider, useSuspend } from "./context/suspend"
 import type { SessionRoute } from "./context/route"
 import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
@@ -122,33 +123,35 @@ export function tui(input: {
             )}
           >
             <ExitProvider onExit={onExit}>
-              <KVProvider>
-                <ToastProvider>
-                  <RouteProvider data={routeData}>
-                    <SDKProvider url={input.url}>
-                      <SyncProvider>
-                        <ThemeProvider mode={mode}>
-                          <LocalProvider
-                            initialModel={input.model}
-                            initialAgent={input.agent}
-                            initialPrompt={input.prompt}
-                          >
-                            <KeybindProvider>
-                              <DialogProvider>
-                                <CommandProvider>
-                                  <PromptHistoryProvider>
-                                    <App />
-                                  </PromptHistoryProvider>
-                                </CommandProvider>
-                              </DialogProvider>
-                            </KeybindProvider>
-                          </LocalProvider>
-                        </ThemeProvider>
-                      </SyncProvider>
-                    </SDKProvider>
-                  </RouteProvider>
-                </ToastProvider>
-              </KVProvider>
+              <SuspendProvider onSuspend={onExit}>
+                <KVProvider>
+                  <ToastProvider>
+                    <RouteProvider data={routeData}>
+                      <SDKProvider url={input.url}>
+                        <SyncProvider>
+                          <ThemeProvider mode={mode}>
+                            <LocalProvider
+                              initialModel={input.model}
+                              initialAgent={input.agent}
+                              initialPrompt={input.prompt}
+                            >
+                              <KeybindProvider>
+                                <DialogProvider>
+                                  <CommandProvider>
+                                    <PromptHistoryProvider>
+                                      <App />
+                                    </PromptHistoryProvider>
+                                  </CommandProvider>
+                                </DialogProvider>
+                              </KeybindProvider>
+                            </LocalProvider>
+                          </ThemeProvider>
+                        </SyncProvider>
+                      </SDKProvider>
+                    </RouteProvider>
+                  </ToastProvider>
+                </KVProvider>
+              </SuspendProvider>
             </ExitProvider>
           </ErrorBoundary>
         )
@@ -178,9 +181,16 @@ function App() {
   const [sessionExists, setSessionExists] = createSignal(false)
   const { theme, mode, setMode } = useTheme()
   const exit = useExit()
+  const suspend = useSuspend()
 
   useKeyboard(async (evt) => {
     if (!Installation.isLocal()) return
+
+    if (evt.ctrl && evt.name === "z") {
+      await suspend()
+      return
+    }
+
     if (evt.meta && evt.name === "t") {
       renderer.toggleDebugOverlay()
       return
