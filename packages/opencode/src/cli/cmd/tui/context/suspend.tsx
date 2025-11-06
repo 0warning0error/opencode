@@ -5,7 +5,12 @@ export const { use: useSuspend, provider: SuspendProvider } = createSimpleContex
   name: "Suspend",
   init: (input: { onSuspend?: () => Promise<void> }) => {
     const renderer = useRenderer()
+
     return async () => {
+      process.once("SIGCONT", () => {
+        renderer.resume()
+      })
+
       renderer.suspend()
       renderer.currentRenderBuffer.clear()
 
