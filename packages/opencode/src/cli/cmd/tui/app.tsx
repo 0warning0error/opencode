@@ -122,7 +122,7 @@ export function tui(input: {
             )}
           >
             <ExitProvider onExit={onExit}>
-              <SuspendProvider onSuspend={onExit}>
+              <SuspendProvider>
                 <KVProvider>
                   <ToastProvider>
                     <RouteProvider data={routeData}>
@@ -178,7 +178,8 @@ function App() {
   const toast = useToast()
   const { theme, mode, setMode } = useTheme()
   const exit = useExit()
-  const suspend = useSuspend()
+
+  useSuspend()
 
   createEffect(() => {
     console.log(JSON.stringify(route.data))

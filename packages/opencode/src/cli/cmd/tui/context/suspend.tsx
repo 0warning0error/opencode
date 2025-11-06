@@ -1,21 +1,23 @@
-import { useRenderer } from "@opentui/solid"
+import { useKeyboard, useRenderer } from "@opentui/solid"
 import { createSimpleContext } from "./helper"
 
 export const { use: useSuspend, provider: SuspendProvider } = createSimpleContext({
   name: "Suspend",
-  init: (input: { onSuspend?: () => Promise<void> }) => {
+  init: () => {
     const renderer = useRenderer()
-
-    return async () => {
-      process.once("SIGCONT", () => {
-        renderer.resume()
-      })
-
-      renderer.suspend()
+    useKeyboard((evt) => {
+      if (evt.ctrl && evt.name == "z") {
+        renderer.suspend()
+        renderer.currentRenderBuffer.clear()
+        process.kill(process.pid, "SIGTSTP")
+      }
+    })
+    process.once("SIGCONT", () => {
       renderer.currentRenderBuffer.clear()
+      renderer.resume()
+      renderer.requestRender()
+    })
 
-      await input.onSuspend?.()
-      process.kill(process.pid, "SIGTSTP")
-    }
+    return async () => {}
   },
 })
