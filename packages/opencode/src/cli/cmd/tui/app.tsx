@@ -7,7 +7,7 @@ import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
-import { SyncProvider, useSync } from "@tui/context/sync"
+import { SyncProvider } from "@tui/context/sync"
 import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel } from "@tui/component/dialog-model"
 import { DialogStatus } from "@tui/component/dialog-status"
@@ -25,7 +25,6 @@ import { DialogAlert } from "./ui/dialog-alert"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
 import { SuspendProvider, useSuspend } from "./context/suspend"
-import type { SessionRoute } from "./context/route"
 import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
@@ -176,46 +175,10 @@ function App() {
   const kv = useKV()
   const command = useCommandDialog()
   const { event } = useSDK()
-  const sync = useSync()
   const toast = useToast()
-  const [sessionExists, setSessionExists] = createSignal(false)
   const { theme, mode, setMode } = useTheme()
   const exit = useExit()
   const suspend = useSuspend()
-
-  useKeyboard(async (evt) => {
-    if (!Installation.isLocal()) return
-
-    if (evt.ctrl && evt.name === "z") {
-      await suspend()
-      return
-    }
-
-    if (evt.meta && evt.name === "t") {
-      renderer.toggleDebugOverlay()
-      return
-    }
-
-    if (evt.meta && evt.name === "d") {
-      renderer.console.toggle()
-      return
-    }
-  })
-
-  // Make sure session is valid, otherwise redirect to home
-  createEffect(async () => {
-    if (route.data.type === "session") {
-      const data = route.data as SessionRoute
-      await sync.session.sync(data.sessionID).catch(() => {
-        toast.show({
-          message: `Session not found: ${data.sessionID}`,
-          variant: "error",
-        })
-        return route.navigate({ type: "home" })
-      })
-      setSessionExists(true)
-    }
-  })
 
   createEffect(() => {
     console.log(JSON.stringify(route.data))
@@ -338,6 +301,24 @@ function App() {
       onSelect: exit,
       category: "System",
     },
+    {
+      title: "Toggle debug panel",
+      category: "System",
+      value: "app.debug",
+      onSelect: (dialog) => {
+        renderer.toggleDebugOverlay()
+        dialog.clear()
+      },
+    },
+    {
+      title: "Toggle console",
+      category: "System",
+      value: "app.fps",
+      onSelect: (dialog) => {
+        renderer.console.toggle()
+        dialog.clear()
+      },
+    },
   ])
 
   createEffect(() => {
@@ -368,12 +349,34 @@ function App() {
 
   event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
+      dialog.clear()
       route.navigate({ type: "home" })
       toast.show({
         variant: "info",
         message: "The current session was deleted",
       })
     }
+  })
+
+  event.on(SessionApi.Event.Error.type, (evt) => {
+    const error = evt.properties.error
+    const message = (() => {
+      if (!error) return "An error occured"
+
+      if (typeof error === "object") {
+        const data = error.data
+        if ("message" in data && typeof data.message === "string") {
+          return data.message
+        }
+      }
+      return String(error)
+    })()
+
+    toast.show({
+      variant: "error",
+      message,
+      duration: 5000,
+    })
   })
 
   return (
@@ -401,7 +404,7 @@ function App() {
           <Match when={route.data.type === "home"}>
             <Home />
           </Match>
-          <Match when={route.data.type === "session" && sessionExists()}>
+          <Match when={route.data.type === "session"}>
             <Session />
           </Match>
         </Switch>
