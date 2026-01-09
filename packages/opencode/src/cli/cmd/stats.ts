@@ -5,6 +5,7 @@ import { bootstrap } from "../bootstrap"
 import { Storage } from "../../storage/storage"
 import { Project } from "../../project/project"
 import { Instance } from "../../project/instance"
+import { Log } from "../../util/log"
 
 interface SessionStats {
   totalSessions: number
@@ -83,16 +84,31 @@ async function getCurrentProject(): Promise<Project.Info> {
 }
 
 async function getAllSessions(): Promise<Session.Info[]> {
+  const log = Log.create({ service: "stats" })
   const sessions: Session.Info[] = []
 
   const projectKeys = await Storage.list(["project"])
-  const projects = await Promise.all(projectKeys.map((key) => Storage.read<Project.Info>(key)))
+  const projects = await Promise.all(
+    projectKeys.map((key) =>
+      Storage.read<Project.Info>(key).catch((e) => {
+        log.warn(`Failed to read project ${key.join("/")}`, { error: e.message })
+        return null
+      }),
+    ),
+  )
 
   for (const project of projects) {
     if (!project) continue
 
     const sessionKeys = await Storage.list(["session", project.id])
-    const projectSessions = await Promise.all(sessionKeys.map((key) => Storage.read<Session.Info>(key)))
+    const projectSessions = await Promise.all(
+      sessionKeys.map((key) =>
+        Storage.read<Session.Info>(key).catch((e) => {
+          log.warn(`Failed to read session ${key.join("/")}`, { error: e.message })
+          return null
+        }),
+      ),
+    )
 
     for (const session of projectSessions) {
       if (session) {
@@ -105,6 +121,7 @@ async function getAllSessions(): Promise<Session.Info[]> {
 }
 
 export async function aggregateSessionStats(days?: number, projectFilter?: string): Promise<SessionStats> {
+  const log = Log.create({ service: "stats" })
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
@@ -179,7 +196,10 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
     const batch = filteredSessions.slice(i, i + BATCH_SIZE)
 
     const batchPromises = batch.map(async (session) => {
-      const messages = await Session.messages({ sessionID: session.id })
+      const messages = await Session.messages({ sessionID: session.id }).catch((e) => {
+        log.warn(`Failed to read messages for session ${session.id}`, { error: e.message })
+        return []
+      })
 
       let sessionCost = 0
       let sessionTokens = { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
