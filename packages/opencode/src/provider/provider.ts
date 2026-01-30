@@ -39,6 +39,7 @@ import { createVercel } from "@ai-sdk/vercel"
 import { createGitLab, VERSION as GITLAB_PROVIDER_VERSION } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
 import { Installation } from "../installation"
+import { ProviderModelDetection } from "./model-detection"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -915,6 +916,13 @@ export namespace Provider {
       if (provider.options) partial.options = provider.options
       mergeProvider(providerID, partial)
     }
+
+    // detect and populate models
+    await Promise.all(
+      Object.entries(providers).map(async ([providerID, provider]) => {
+        await ProviderModelDetection.populateModels(provider, config.provider?.[providerID], modelsDev[providerID])
+      }),
+    )
 
     for (const [providerID, provider] of Object.entries(providers)) {
       if (!isProviderAllowed(providerID)) {
