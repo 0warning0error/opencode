@@ -39,6 +39,7 @@ import { createVercel } from "@ai-sdk/vercel"
 import { createGitLab, VERSION as GITLAB_PROVIDER_VERSION } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
 import { Installation } from "../installation"
+import { ProviderModelDetection } from "./model-detection"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -960,14 +961,37 @@ export namespace Provider {
     // detect models and prune invalid ones
     await Promise.all(
       Object.values(providers).map(async (provider) => {
-        const detected = await listModels(provider)
+        const detected = await ProviderModelDetection.detect(provider)
         if (!detected) return
-        const detectedSet = new Set(detected)
+        
+        // Local models return the actual loaded models
+        // Replace the entire models list with the detected models
+        if (detected.length > 0 && typeof detected[0] !== "string") {
+          const newModelsList = detected as Provider.Model[]
+          provider.models = {}
+          for (const model of newModelsList) {
+            provider.models[model.id] = model
+          }
+
+          return
+        } 
+        
+        const detectedModelIds = detected as string[]
+
+        // remove models that were not detected
+        const detectedSet = new Set(detectedModelIds)
         for (const modelID of Object.keys(provider.models)) {
           if (!detectedSet.has(modelID)) delete provider.models[modelID]
         }
-        // TODO: add detected models not present in config/models.dev
-        // for (const modelID of detected) {}
+
+        // add detected models not present in config/models.dev
+        for (const modelID of detectedModelIds) {
+          provider.models[modelID] = {
+            id: modelID,
+            providerID: provider.id,
+            name: modelID,
+          } as Model
+        }
       }),
     )
 
