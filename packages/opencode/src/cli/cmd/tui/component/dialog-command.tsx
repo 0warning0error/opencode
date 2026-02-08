@@ -11,6 +11,8 @@ import {
 } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
+import { useKV } from "@tui/context/kv"
+import { useRoute } from "@tui/context/route"
 import type { KeybindsConfig } from "@opencode-ai/sdk/v2"
 
 type Context = ReturnType<typeof init>
@@ -123,6 +125,22 @@ export function CommandProvider(props: ParentProps) {
   const value = init()
   const dialog = useDialog()
   const keybind = useKeybind()
+  const kv = useKV()
+  const route = useRoute()
+  const [, setShowMetrics] = kv.signal("assistant_metrics_visibility", true)
+
+  value.register(() => [
+    {
+      title: "Toggle token metrics",
+      value: "session.toggle.metrics",
+      category: "Session",
+      enabled: route.data.type === "session",
+      onSelect: (dialog) => {
+        setShowMetrics((prev) => !prev)
+        dialog.clear()
+      },
+    },
+  ])
 
   useKeyboard((evt) => {
     if (value.suspended()) return

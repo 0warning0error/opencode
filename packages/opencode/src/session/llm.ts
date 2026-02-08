@@ -26,6 +26,12 @@ import { Auth } from "@/auth"
 export namespace LLM {
   const log = Log.create({ service: "llm" })
 
+  type StepTiming = {
+    wallMs: number
+    ttftMs: number
+    genMs: number
+  }
+
   export const OUTPUT_TOKEN_MAX = Flag.OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
 
   export type StreamInput = {
@@ -180,7 +186,7 @@ export namespace LLM {
       })
     }
 
-    return streamText({
+    const result = streamText({
       onError(error) {
         l.error("stream error", {
           error,
@@ -263,6 +269,59 @@ export namespace LLM {
         },
       },
     })
+
+    const output = Object.create(result) as StreamOutput
+    Object.defineProperty(output, "fullStream", {
+      value: instrumentFullStream(result.fullStream),
+      enumerable: true,
+      configurable: true,
+    })
+    return output
+  }
+
+  function instrumentFullStream(fullStream: StreamOutput["fullStream"]) {
+    return {
+      async *[Symbol.asyncIterator]() {
+        // Start timing when iteration begins - this is when the HTTP request is actually made
+        const timing = {
+          start: Date.now(),
+          first: undefined as number | undefined,
+          last: undefined as number | undefined,
+        }
+
+        for await (const value of fullStream) {
+          if (value.type === "text-delta" || value.type === "reasoning-delta" || value.type === "tool-input-delta") {
+            if (!timing.first) timing.first = Date.now()
+            timing.last = Date.now()
+            yield value
+            continue
+          }
+
+          if (value.type === "finish-step") {
+            const end = Date.now()
+            const wallMs = end - timing.start
+            const ttftMs = timing.first ? timing.first - timing.start : wallMs
+            const genMs = timing.first && timing.last ? timing.last - timing.first : wallMs
+            const metrics: StepTiming = {
+              wallMs,
+              ttftMs,
+              genMs,
+            }
+            yield {
+              ...value,
+              metrics,
+            }
+            // Reset timing for next step (if any)
+            timing.start = Date.now()
+            timing.first = undefined
+            timing.last = undefined
+            continue
+          }
+
+          yield value
+        }
+      },
+    }
   }
 
   async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "user">) {

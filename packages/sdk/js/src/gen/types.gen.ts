@@ -329,6 +329,12 @@ export type StepFinishPart = {
       write: number
     }
   }
+  metrics?: {
+    wallMs: number
+    ttftMs: number
+    genMs: number
+    tokensPerSecond: number
+  }
 }
 
 export type SnapshotPart = {

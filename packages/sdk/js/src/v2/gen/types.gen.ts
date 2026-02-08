@@ -192,6 +192,7 @@ export type AssistantMessage = {
     input: number
     output: number
     reasoning: number
+    generated?: number
     cache: {
       read: number
       write: number
@@ -407,10 +408,17 @@ export type StepFinishPart = {
     input: number
     output: number
     reasoning: number
+    generated?: number
     cache: {
       read: number
       write: number
     }
+  }
+  metrics?: {
+    wallMs: number
+    ttftMs: number
+    genMs: number
+    tokensPerSecond: number
   }
 }
 

@@ -242,6 +242,19 @@ export namespace SessionProcessor {
                   input.assistantMessage.finish = value.finishReason
                   input.assistantMessage.cost += usage.cost
                   input.assistantMessage.tokens = usage.tokens
+                  const timing = (value as { metrics?: { wallMs: number; ttftMs: number; genMs: number } }).metrics
+                  const metrics = (() => {
+                    if (!timing) return undefined
+                    const generated = usage.tokens.generated ?? usage.tokens.output
+                    const tokensPerSecond =
+                      timing.genMs > 0 && generated > 0 ? Number(((generated * 1000) / timing.genMs).toFixed(2)) : 0
+                    return {
+                      wallMs: timing.wallMs,
+                      ttftMs: timing.ttftMs,
+                      genMs: timing.genMs,
+                      tokensPerSecond,
+                    }
+                  })()
                   await Session.updatePart({
                     id: Identifier.ascending("part"),
                     reason: value.finishReason,
@@ -251,6 +264,7 @@ export namespace SessionProcessor {
                     type: "step-finish",
                     tokens: usage.tokens,
                     cost: usage.cost,
+                    ...(metrics && { metrics }),
                   })
                   await Session.updateMessage(input.assistantMessage)
                   if (snapshot) {

@@ -28,7 +28,15 @@ import {
   RGBA,
 } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart } from "@opencode-ai/sdk/v2"
+import type {
+  AssistantMessage,
+  Part,
+  ToolPart,
+  UserMessage,
+  TextPart,
+  ReasoningPart,
+  StepFinishPart,
+} from "@opencode-ai/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
 import type { Tool } from "@/tool/tool"
@@ -98,6 +106,7 @@ const context = createContext<{
   showThinking: () => boolean
   showTimestamps: () => boolean
   showDetails: () => boolean
+  showMetrics: () => boolean
   diffWrapMode: () => "word" | "none"
   sync: ReturnType<typeof useSync>
 }>()
@@ -147,6 +156,7 @@ export function Session() {
   const [showThinking, setShowThinking] = kv.signal("thinking_visibility", true)
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
   const [showDetails, setShowDetails] = kv.signal("tool_details_visibility", true)
+  const [showMetrics] = kv.signal("assistant_metrics_visibility", true)
   const [showAssistantMetadata, setShowAssistantMetadata] = kv.signal("assistant_metadata_visibility", true)
   const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", false)
   const [diffWrapMode] = kv.signal<"word" | "none">("diff_wrap_mode", "word")
@@ -951,6 +961,7 @@ export function Session() {
         showThinking,
         showTimestamps,
         showDetails,
+        showMetrics,
         diffWrapMode,
         sync,
       }}
@@ -1237,6 +1248,7 @@ function UserMessage(props: {
 }
 
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
+  const ctx = use()
   const local = useLocal()
   const { theme } = useTheme()
   const sync = useSync()
@@ -1252,6 +1264,24 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     const user = messages().find((x) => x.role === "user" && x.id === props.message.parentID)
     if (!user || !user.time) return 0
     return props.message.time.completed - user.time.created
+  })
+
+  const metrics = createMemo(() => {
+    const steps = props.parts.flatMap((part) => {
+      if (part.type !== "step-finish") return []
+      const metrics = (part as StepFinishPart & { metrics?: { ttftMs: number; genMs: number } }).metrics
+      if (!metrics) return []
+      const tokens = part.tokens as StepFinishPart["tokens"] & { generated?: number }
+      return [{ metrics, generated: tokens.generated ?? tokens.output }]
+    })
+    if (!steps.length) return
+    const generatedTokens = steps.reduce((sum, step) => sum + step.generated, 0)
+    const genMs = steps.reduce((sum, step) => sum + step.metrics.genMs, 0)
+    const tokensPerSecond = genMs > 0 && generatedTokens > 0 ? Number(((generatedTokens * 1000) / genMs).toFixed(2)) : 0
+    return {
+      tokensPerSecond,
+      ttftMs: steps[0]?.metrics.ttftMs ?? 0,
+    }
   })
 
   return (
@@ -1303,6 +1333,10 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
               <span style={{ fg: theme.textMuted }}> · {props.message.modelID}</span>
               <Show when={duration()}>
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
+              </Show>
+              <Show when={ctx.showMetrics() && metrics()}>
+                <span style={{ fg: theme.textMuted }}> · {metrics()?.tokensPerSecond?.toFixed(1) ?? 0} tok/s</span>
+                <span style={{ fg: theme.textMuted }}> · TTFT {Locale.duration(metrics()?.ttftMs ?? 0)}</span>
               </Show>
               <Show when={props.message.error?.name === "MessageAbortedError"}>
                 <span style={{ fg: theme.textMuted }}> · interrupted</span>

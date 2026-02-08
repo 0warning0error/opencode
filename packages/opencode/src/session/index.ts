@@ -460,10 +460,26 @@ export namespace Session {
         return value
       }
 
+      const output = safe(input.usage.outputTokens ?? 0)
+      const reasoning = safe(input.usage?.reasoningTokens ?? 0)
+      // Providers report tokens differently - some include reasoning in output, others don't.
+      // We compare against (totalTokens - inputTokens) to detect which format we're receiving
+      // and return whichever value (output alone or output+reasoning) is closer to the total.
+      const generated = (() => {
+        if (reasoning <= 0) return output
+        if (input.usage.totalTokens === undefined || input.usage.inputTokens === undefined) return output
+        const total = Math.max(0, safe(input.usage.totalTokens - input.usage.inputTokens))
+        const outputDiff = Math.abs(total - output)
+        const combined = output + reasoning
+        const combinedDiff = Math.abs(total - combined)
+        return combinedDiff < outputDiff ? combined : output
+      })()
+
       const tokens = {
         input: safe(adjustedInputTokens),
-        output: safe(input.usage.outputTokens ?? 0),
-        reasoning: safe(input.usage?.reasoningTokens ?? 0),
+        output,
+        reasoning,
+        generated,
         cache: {
           write: safe(cacheWriteInputTokens),
           read: safe(cacheReadInputTokens),

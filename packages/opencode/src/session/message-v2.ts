@@ -210,11 +210,20 @@ export namespace MessageV2 {
       input: z.number(),
       output: z.number(),
       reasoning: z.number(),
+      generated: z.number().optional(),
       cache: z.object({
         read: z.number(),
         write: z.number(),
       }),
     }),
+    metrics: z
+      .object({
+        wallMs: z.number(),
+        ttftMs: z.number(),
+        genMs: z.number(),
+        tokensPerSecond: z.number(),
+      })
+      .optional(),
   }).meta({
     ref: "StepFinishPart",
   })
@@ -382,6 +391,7 @@ export namespace MessageV2 {
       input: z.number(),
       output: z.number(),
       reasoning: z.number(),
+      generated: z.number().optional(),
       cache: z.object({
         read: z.number(),
         write: z.number(),
