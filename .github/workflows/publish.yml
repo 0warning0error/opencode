@@ -19,14 +19,13 @@ jobs:
       - name: Cache apt packages
         uses: actions/cache@v5
         with:
-          path: ~/.apt-cache
+          path: ~/apt-cache
           key: ${{ runner.os }}-${{ matrix.settings.target }}-apt-${{ hashFiles('.github/workflows/publish.yml') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.settings.target }}-apt-
 
       - name: install dependencies (ubuntu only)
         run: |
-          mkdir -p ~/.apt-cache
+          mkdir -p ~/apt-cache && chmod a+rw ~/apt-cache
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends -o dir::cache::archives="$HOME/.apt-cache" \ 
-            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y --no-install-recommends -o dir::cache::archives="$HOME/.apt-cache" libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
