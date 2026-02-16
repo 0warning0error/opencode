@@ -29,6 +29,7 @@ export interface Settings {
   appearance: {
     fontSize: number
     font: string
+    colorblindMode: boolean
   }
   keybinds: Record<string, string>
   permissions: {
@@ -49,6 +50,7 @@ const defaultSettings: Settings = {
   appearance: {
     fontSize: 14,
     font: "ibm-plex-mono",
+    colorblindMode: false,
   },
   keybinds: {},
   permissions: {
@@ -71,6 +73,18 @@ const defaultSettings: Settings = {
 
 const monoFallback =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+
+const colorblindVars: Record<string, string> = {
+  "--icon-diff-add-active": "#084ea5",
+  "--icon-diff-add-base": "#0b63ce",
+  "--icon-diff-add-hover": "#0852aa",
+  "--icon-diff-delete-base": "#b65f00",
+  "--icon-diff-delete-hover": "#995000",
+  "--syntax-diff-add": "#0b63ce",
+  "--syntax-diff-delete": "#b65f00",
+  "--text-diff-add-base": "#0b63ce",
+  "--text-diff-delete-base": "#b65f00",
+}
 
 const monoFonts: Record<string, string> = {
   "ibm-plex-mono": `"IBM Plex Mono", "IBM Plex Mono Fallback", ${monoFallback}`,
@@ -106,6 +120,23 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       document.documentElement.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.font))
     })
 
+    createEffect(() => {
+      if (typeof document === "undefined") return
+      const root = document.documentElement
+      if (store.appearance?.colorblindMode) {
+        root.dataset.colorblindMode = "true"
+        for (const [key, value] of Object.entries(colorblindVars)) {
+          root.style.setProperty(key, value)
+        }
+        return
+      }
+
+      root.removeAttribute("data-colorblind-mode")
+      for (const key of Object.keys(colorblindVars)) {
+        root.style.removeProperty(key)
+      }
+    })
+
     return {
       ready,
       get current() {
@@ -135,6 +166,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         font: withFallback(() => store.appearance?.font, defaultSettings.appearance.font),
         setFont(value: string) {
           setStore("appearance", "font", value)
+        },
+        colorblindMode: withFallback(
+          () => store.appearance?.colorblindMode,
+          defaultSettings.appearance.colorblindMode,
+        ),
+        setColorblindMode(value: boolean) {
+          setStore("appearance", "colorblindMode", value)
         },
       },
       keybinds: {

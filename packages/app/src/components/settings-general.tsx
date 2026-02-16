@@ -250,6 +250,18 @@ export const SettingsGeneral: Component = () => {
             )}
           </Select>
         </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.colorblindMode.title")}
+          description={language.t("settings.general.row.colorblindMode.description")}
+        >
+          <div data-action="settings-colorblind-mode">
+            <Switch
+              checked={settings.appearance.colorblindMode()}
+              onChange={(checked) => settings.appearance.setColorblindMode(checked)}
+            />
+          </div>
+        </SettingsRow>
       </div>
     </div>
   )
