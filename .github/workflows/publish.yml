@@ -13,12 +13,6 @@ jobs:
         with:
           fetch-tags: true
           
-      # - name: Make apt cache writable
-      #   run: |
-      #     sudo mkdir -p /var/cache/apt/archives
-      #     sudo chown -R runner:runner /var/cache/apt/archives
-      #     sudo chmod -R u+rwX /var/cache/apt/archives
-          
       - name: Cache apt packages
         uses: actions/cache@v5
         with:
@@ -38,11 +32,17 @@ jobs:
         with:
           workspaces: packages/desktop/src-tauri
           shared-key: ${{ matrix.settings.target }}
-          cache-all-crates: true
-
-      # Fixes AppImage build issues, can be removed when https://github.com/tauri-apps/tauri/pull/12491 is released
-      - name: Install tauri-cli from portable appimage branch
-        run: |
-          cargo install tauri-cli --git https://github.com/tauri-apps/tauri --branch feat/truly-portable-appimage --force
-          echo "Installed tauri-cli version:"
-          cargo tauri --version
+      
+      # Cache *cargo install* itself (separate concern)
+      - uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: tauri-cli
+          git: https://github.com/tauri-apps/tauri
+          # BEST: pin a commit for stable caching & reproducibility
+          # rev: <commit-sha>
+          # If you must follow the branch:
+          tag: feat/truly-portable-appimage
+      
+      - name: Show tauri-cli version
+        run: cargo tauri --version
+  
