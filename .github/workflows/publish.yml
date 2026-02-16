@@ -1,5 +1,8 @@
 name: publish
 on:
+  push:
+    branches:
+      - dev
   workflow_dispatch:
 
 jobs:
@@ -26,6 +29,7 @@ jobs:
 
       - name: install dependencies (ubuntu only)
         run: |
-          mkdir -p ~/apt-cache && chmod a+rw ~/apt-cache
+          mkdir -p ~/apt-cache && chmod -R a+rw ~/apt-cache
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends -o dir::cache::archives="$HOME/apt-cache" libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo chmod -R a+rw ~/apt-cache
