@@ -41,7 +41,7 @@ jobs:
           # BEST: pin a commit for stable caching & reproducibility
           # rev: <commit-sha>
           # If you must follow the branch:
-          tag: feat/truly-portable-appimage
+          rev: feat/truly-portable-appimage
       
       - name: Show tauri-cli version
         run: cargo tauri --version
