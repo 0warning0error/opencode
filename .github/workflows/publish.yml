@@ -38,10 +38,8 @@ jobs:
         with:
           tool: tauri-cli
           git: https://github.com/tauri-apps/tauri
-          # BEST: pin a commit for stable caching & reproducibility
-          # rev: <commit-sha>
-          # If you must follow the branch:
-          rev: feat/truly-portable-appimage
+          # branch: feat/truly-portable-appimage
+          rev: b5573c1db2bb6118594b586a6aa51aeb37aa7d84
       
       - name: Show tauri-cli version
         run: cargo tauri --version
