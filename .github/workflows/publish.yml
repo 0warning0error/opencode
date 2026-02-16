@@ -38,6 +38,7 @@ jobs:
         with:
           workspaces: packages/desktop/src-tauri
           shared-key: ${{ matrix.settings.target }}
+          cache-all-crates: true
 
       # Fixes AppImage build issues, can be removed when https://github.com/tauri-apps/tauri/pull/12491 is released
       - name: Install tauri-cli from portable appimage branch
